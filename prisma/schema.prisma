@@ -1,0 +1,144 @@
+// Schéma de la base de données.
+// Après chaque modification : `pnpm db:migrate --name description-du-changement`
+// La documentation : https://www.prisma.io/docs
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTHENTIFICATION (Better Auth)
+// Ces modèles sont attendus par Better Auth : ne renomme pas les champs.
+// Si tu ajoutes un plugin Better Auth, régénère-les avec sa CLI.
+// ═══════════════════════════════════════════════════════════════
+
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  /// "user" ou "admin" (voir src/lib/session.ts)
+  role          String    @default("user")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  bookings      Booking[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PAIEMENTS
+// Garde la trace des événements Stripe déjà traités : Stripe peut
+// envoyer le même webhook plusieurs fois.
+// ═══════════════════════════════════════════════════════════════
+
+model StripeEvent {
+  /// Identifiant de l'événement Stripe (evt_...)
+  id          String   @id
+  type        String
+  processedAt DateTime @default(now())
+
+  @@map("stripe_event")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODULE D'EXEMPLE : RÉSERVATION AVEC ACOMPTE
+// Montre toute la chaîne : Server Action → service → Prisma,
+// Stripe Checkout, webhook, email. Supprime-le ou adapte-le
+// au début d'un nouveau projet (voir docs/nouveau-projet.md).
+// ═══════════════════════════════════════════════════════════════
+
+model Slot {
+  id              String   @id @default(cuid())
+  startsAt        DateTime
+  durationMinutes Int      @default(60)
+  /// Prix total en centimes (les montants ne sont jamais stockés en décimal)
+  priceCents      Int
+  createdAt       DateTime @default(now())
+  booking         Booking?
+
+  @@index([startsAt])
+  @@map("slot")
+}
+
+enum BookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+  status          BookingStatus @default(PENDING_PAYMENT)
+  depositCents    Int
+  stripeSessionId String?       @unique
+  /// Un créneau = une seule réservation. C'est la base qui empêche
+  /// deux personnes de réserver le même créneau en même temps.
+  slotId          String        @unique
+  slot            Slot          @relation(fields: [slotId], references: [id], onDelete: Restrict)
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([status, createdAt])
+  @@map("booking")
+}

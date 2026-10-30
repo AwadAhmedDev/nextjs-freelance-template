@@ -1,0 +1,7 @@
+ignoredBuiltDependencies:
+  - sharp
+  - unrs-resolver
+
+# Corrige des failles dans des dépendances indirectes (vérifié par `pnpm audit`).
+overrides:
+  lodash: ">=4.18.0"

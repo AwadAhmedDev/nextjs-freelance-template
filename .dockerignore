@@ -1,0 +1,21 @@
+# Ne jamais envoyer de secrets ni de fichiers lourds dans le contexte Docker
+.env
+.env.*
+!.env.example
+node_modules
+.next
+src/generated
+coverage
+playwright-report
+test-results
+blob-report
+.git
+.github
+.claude
+.husky
+docs
+*.md
+!README.md
+Dockerfile
+docker-compose*.yml
+Caddyfile
