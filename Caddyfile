@@ -1,0 +1,25 @@
+# Caddy : HTTPS automatique (certificat Let's Encrypt renouvelé tout seul).
+# DOMAIN est défini dans le .env du serveur, ex. DOMAIN=www.client.fr
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Transmet l'adresse réelle du visiteur à l'application (limitation de débit).
+	reverse_proxy app:3000 {
+		header_up X-Real-IP {remote_host}
+	}
+
+	# Fichiers statiques Next.js : mis en cache longtemps par le navigateur.
+	@static path /_next/static/*
+	header @static Cache-Control "public, max-age=31536000, immutable"
+
+	log {
+		output stdout
+		format console
+	}
+}
+
+# Redirige la version sans "www" vers la version avec "www" (à adapter).
+# client.fr {
+# 	redir https://www.client.fr{uri} permanent
+# }
