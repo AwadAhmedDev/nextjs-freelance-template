@@ -5,3 +5,5 @@ ignoredBuiltDependencies:
 # Corrige des failles dans des dépendances indirectes (vérifié par `pnpm audit`).
 overrides:
   lodash: ">=4.18.0"
+  # Prisma 7 fige effect sur une version vulnérable (GHSA-7589-6fvf-x4pw).
+  effect: ">=3.22.1 <4"
